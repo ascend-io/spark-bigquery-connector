@@ -15,7 +15,6 @@
  */
 package com.google.cloud.spark.bigquery;
 
-import com.google.common.collect.ImmutableList;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
@@ -116,6 +115,10 @@ public abstract class ArrowSchemaConverter extends ColumnVector {
 
   @Override
   public ColumnarMap getMap(int rowId) {
+    /**
+     *  BigQuery does not support Map type but this function needs to be overridden since this
+     *  class extends an abstract class
+     */
     throw new UnsupportedOperationException();
   }
 
@@ -571,8 +574,7 @@ public abstract class ArrowSchemaConverter extends ColumnVector {
 
       // this is to support Array of StructType/StructVector
       if(userProvidedField != null) {
-        DataType dataType = userProvidedField.dataType();
-        ArrayType arrayType = dataType instanceof MapType ? convertMapTypeToArrayType((MapType) dataType) : (ArrayType) dataType;
+        ArrayType arrayType = ((ArrayType)userProvidedField.dataType());
         structField =
             new StructField(
                 vector.getDataVector().getName(),
@@ -582,14 +584,6 @@ public abstract class ArrowSchemaConverter extends ColumnVector {
       }
 
       this.arrayData = newArrowSchemaConverter(vector.getDataVector(), structField);
-    }
-
-
-    static ArrayType convertMapTypeToArrayType(MapType mapType) {
-      StructField key = StructField.apply("key", mapType.keyType(), false, Metadata.empty());
-      StructField value = StructField.apply("value", mapType.valueType(), mapType.valueContainsNull(), Metadata.empty());
-      StructField[] fields = new StructField[] { key, value};
-      return ArrayType.apply(new StructType(fields));
     }
 
     @Override
@@ -605,17 +599,6 @@ public abstract class ArrowSchemaConverter extends ColumnVector {
       int start = offsets.getInt(index);
       int end = offsets.getInt(index + ListVector.OFFSET_WIDTH);
       return new ColumnarArray(arrayData, start, end - start);
-    }
-
-    @Override
-    public ColumnarMap getMap(int rowId) {
-      ArrowBuf offsets = ((ListVector)vector).getOffsetBuffer();
-      int index = rowId * ListVector.OFFSET_WIDTH;
-      int start = offsets.getInt(index);
-      int end = offsets.getInt(index + ListVector.OFFSET_WIDTH);
-      ColumnVector keys = ((StructAccessor)arrayData).childColumns[0];
-      ColumnVector values = ((StructAccessor)arrayData).childColumns[1];
-      return new ColumnarMap(keys, values, start, end - start);
     }
 
     @Override

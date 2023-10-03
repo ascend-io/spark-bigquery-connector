@@ -285,43 +285,17 @@ public class SchemaConverters {
       dataType = new ArrayType(dataType, true);
     }
 
-    MetadataBuilder metadataBuilder = new MetadataBuilder();
+    MetadataBuilder metadata = new MetadataBuilder();
     if (field.getDescription() != null) {
-      metadataBuilder.putString("description", field.getDescription());
-      metadataBuilder.putString("comment", field.getDescription());
+      metadata.putString("description", field.getDescription());
+      metadata.putString("comment", field.getDescription());
     }
     // JSON
     if (LegacySQLTypeName.JSON.equals(field.getType())) {
-      metadataBuilder.putString("sqlType", "JSON");
+      metadata.putString("sqlType", "JSON");
     }
 
-    Metadata metadata = metadataBuilder.build();
-    return convertMap(field, metadata) //
-        .orElse(new StructField(field.getName(), dataType, nullable, metadata));
-  }
-
-  Optional<StructField> convertMap(Field field, Metadata metadata) {
-    if (field.getMode() != Field.Mode.REPEATED) {
-      return Optional.empty();
-    }
-    if (field.getType() != LegacySQLTypeName.RECORD) {
-      return Optional.empty();
-    }
-    FieldList subFields = field.getSubFields();
-    if (subFields.size() != 2) {
-      return Optional.empty();
-    }
-    Set<String> subFieldNames = subFields.stream().map(Field::getName).collect(Collectors.toSet());
-    if (!subFieldNames.contains("key") || !subFieldNames.contains("value")) {
-      // no "key" or "value" fields
-      return Optional.empty();
-    }
-    Field key = subFields.get("key");
-    Field value = subFields.get("value");
-    MapType mapType = DataTypes.createMapType(convert(key).dataType(), convert(value).dataType());
-    // The returned type is not nullable because the original field is a REPEATED, not NULLABLE.
-    // There are some compromises we need to do as BigQuery has no native MAP type
-    return Optional.of(new StructField(field.getName(), mapType, /* nullable */ false, metadata));
+    return new StructField(field.getName(), dataType, nullable, metadata.build());
   }
 
   private DataType getDataType(Field field) {

@@ -220,7 +220,6 @@ public class BigQueryDataSourceReaderContext {
               .collect(ImmutableList.toImmutableList());
     }
     ImmutableList<String> partitionSelectedFields = tempSelectedFields;
-    Optional<StructType> arrowSchema = Optional.of(userProvidedSchema.orElse(readSchema()));
     plannedInputPartitionContexts =
         Streams.stream(
                 Iterables.partition(
@@ -237,7 +236,7 @@ public class BigQueryDataSourceReaderContext {
                         readSessionCreatorConfig.toReadRowsHelperOptions(),
                         partitionSelectedFields,
                         readSessionResponse.get(),
-                        arrowSchema))
+                        userProvidedSchema))
             .collect(Collectors.toList());
     return plannedInputPartitionContexts.stream()
         .map(ctx -> (InputPartitionContext<ColumnarBatch>) ctx);

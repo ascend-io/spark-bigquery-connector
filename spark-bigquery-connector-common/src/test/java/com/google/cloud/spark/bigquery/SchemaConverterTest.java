@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.cloud.bigquery.Field;
-import com.google.cloud.bigquery.Field.Mode;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.Schema;
@@ -29,7 +28,6 @@ import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TimePartitioning;
-import com.google.cloud.bigquery.connector.common.BigQueryUtil;
 import java.util.Optional;
 import org.apache.spark.ml.linalg.SQLDataTypes;
 import org.apache.spark.sql.types.*;
@@ -322,100 +320,6 @@ public class SchemaConverterTest {
         .isEqualTo(Optional.of(SQLDataTypes.MatrixType()));
   }
 
-  @Test
-  public void testConvertBigQueryMapToSparkMap_not_repeated() {
-    Optional<StructField> field =
-        SchemaConverters.from(SCHEMA_CONVERTERS_CONFIGURATION)
-            .convertMap(
-                Field.newBuilder("foo", LegacySQLTypeName.INTEGER).setMode(Mode.REQUIRED).build(),
-                Metadata.empty());
-    assertThat(field).isEqualTo(Optional.empty());
-  }
-
-  @Test
-  public void testConvertBigQueryMapToSparkMap_not_record() {
-    Optional<StructField> field =
-        SchemaConverters.from(SCHEMA_CONVERTERS_CONFIGURATION)
-            .convertMap(
-                Field.newBuilder("foo", LegacySQLTypeName.INTEGER).setMode(Mode.REPEATED).build(),
-                Metadata.empty());
-    assertThat(field).isEqualTo(Optional.empty());
-  }
-
-  @Test
-  public void testConvertBigQueryMapToSparkMap_wrong_record_size() {
-    Optional<StructField> field =
-        SchemaConverters.from(SCHEMA_CONVERTERS_CONFIGURATION)
-            .convertMap(
-                Field.newBuilder(
-                        "foo", LegacySQLTypeName.RECORD, Field.of("foo", LegacySQLTypeName.INTEGER))
-                    .setMode(Mode.REPEATED)
-                    .build(),
-                Metadata.empty());
-    assertThat(field).isEqualTo(Optional.empty());
-  }
-
-  @Test
-  public void testConvertBigQueryMapToSparkMap_wrong_record_fields() {
-    Optional<StructField> field =
-        SchemaConverters.from(SCHEMA_CONVERTERS_CONFIGURATION)
-            .convertMap(
-                Field.newBuilder(
-                        "foo",
-                        LegacySQLTypeName.RECORD,
-                        Field.of("foo", LegacySQLTypeName.INTEGER),
-                        Field.of("bar", LegacySQLTypeName.INTEGER))
-                    .setMode(Mode.REPEATED)
-                    .build(),
-                Metadata.empty());
-    assertThat(field).isEqualTo(Optional.empty());
-  }
-
-  @Test
-  public void testConvertBigQueryMapToSparkMap_with_actual_map() {
-    Optional<StructField> fieldOpt =
-        SchemaConverters.from(SCHEMA_CONVERTERS_CONFIGURATION)
-            .convertMap(
-                Field.newBuilder(
-                        "foo",
-                        LegacySQLTypeName.RECORD,
-                        Field.of("key", LegacySQLTypeName.INTEGER),
-                        Field.of("value", LegacySQLTypeName.STRING))
-                    .setMode(Mode.REPEATED)
-                    .build(),
-                Metadata.empty());
-    MapType longToStringMapType = DataTypes.createMapType(DataTypes.LongType, DataTypes.StringType);
-    assertThat(fieldOpt.isPresent()).isTrue();
-    StructField field = fieldOpt.get();
-    assertThat(field.dataType()).isEqualTo(longToStringMapType);
-    assertThat(field.name()).isEqualTo("foo");
-  }
-
-  @Test
-  public void testCreateDecimalTypeFromNumericField() throws Exception {
-    // new builder instance is needed for each test
-    assertDecimal(numeric(), 38, 9);
-    assertDecimal(numeric().setPrecision(20L), 20, 0);
-    assertDecimal(numeric().setPrecision(30L), 30, 1);
-    assertDecimal(numeric().setScale(5L), 34, 5);
-    assertDecimal(numeric().setPrecision(20L).setScale(5L), 20, 5);
-  }
-
-  private Field.Builder numeric() {
-    return Field.newBuilder("foo", LegacySQLTypeName.NUMERIC);
-  }
-
-  private void assertDecimal(Field.Builder numeric, int expectedPrecision, int expectedScale) {
-    DecimalType decimalType =
-        SchemaConverters.createDecimalTypeFromNumericField(
-            numeric.build(),
-            LegacySQLTypeName.NUMERIC,
-            BigQueryUtil.DEFAULT_NUMERIC_PRECISION,
-            BigQueryUtil.DEFAULT_NUMERIC_SCALE);
-    assertThat(decimalType.precision()).isEqualTo(expectedPrecision);
-    assertThat(decimalType.scale()).isEqualTo(expectedScale);
-  }
-
   public final StructType MY_STRUCT =
       DataTypes.createStructType(
           new StructField[] {
@@ -520,9 +424,11 @@ public class SchemaConverterTest {
               "map_f",
               LegacySQLTypeName.RECORD,
               FieldList.of(
-                  Field.newBuilder("key", LegacySQLTypeName.STRING).setMode(Mode.REQUIRED).build(),
+                  Field.newBuilder("key", LegacySQLTypeName.STRING)
+                      .setMode(Field.Mode.REQUIRED)
+                      .build(),
                   Field.newBuilder("value", LegacySQLTypeName.INTEGER)
-                      .setMode(Mode.NULLABLE)
+                      .setMode(Field.Mode.NULLABLE)
                       .build()))
           .setMode(Field.Mode.REPEATED)
           .build();
